@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-const APP_NAME = "test_app"
+const AppName = "test_app"
 
 var ignoreNets = []string{
 	"30.39.179.16/30",
@@ -47,8 +47,8 @@ func newCallback() callback {
 
 	// Create naming client for service discovery
 	nClient, _ := clients.CreateNamingClient(map[string]interface{}{
-		"serverConfigs": serverConfigs,
-		"clientConfig":  clientConfig,
+		constant.KEY_SERVER_CONFIGS: serverConfigs,
+		constant.KEY_CLIENT_CONFIG:  clientConfig,
 	})
 	return callback{
 		ips:     ip,
@@ -67,11 +67,8 @@ func (c callback) AfterStart(app *beego.HttpServer) {
 			Weight:      100,
 			Enable:      true,
 			Healthy:     true,
-			ServiceName: APP_NAME,
+			ServiceName: AppName,
 			Ephemeral:   true,
-			//Metadata: map[string]string{
-			//	"preserved.heart.beat.interval": "3000",
-			//},
 		}
 		_, err := c.nclient.RegisterInstance(regParam)
 		totalErr = multierr.Append(totalErr, err)
@@ -87,7 +84,7 @@ func (c callback) BeforeShutdown(app *beego.HttpServer) {
 			Port:        uint64(app.Cfg.Listen.HTTPPort),
 			Weight:      0,
 			Enable:      false,
-			ServiceName: APP_NAME,
+			ServiceName: AppName,
 		}
 		_, err := c.nclient.UpdateInstance(updateParam)
 		totalErr = multierr.Append(totalErr, err)
@@ -99,7 +96,7 @@ func (c callback) BeforeShutdown(app *beego.HttpServer) {
 		deregParam := vo.DeregisterInstanceParam{
 			Ip:          ip,
 			Port:        uint64(app.Cfg.Listen.HTTPPort),
-			ServiceName: APP_NAME,
+			ServiceName: AppName,
 		}
 		_, err := c.nclient.DeregisterInstance(deregParam)
 		totalErr = multierr.Append(totalErr, err)
