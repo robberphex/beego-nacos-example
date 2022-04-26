@@ -319,8 +319,8 @@ github.com/prometheus/procfs v0.1.3/go.mod h1:lV6e/gmhEcM9IjHGsFOCxxuZ+z1YqCvr4O
 github.com/prometheus/procfs v0.6.0 h1:mxy4L2jP6qMonqmq+aTtOx1ifVWUgG/TAmntgbh3xv4=
 github.com/prometheus/procfs v0.6.0/go.mod h1:cz+aTbrPOrUb4q7XlbU9ygM+/jj0fzG6c1xBZuNvfVA=
 github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
-github.com/robberphex/beego/v2 v2.0.3-0.20220425143916-c546dbd1c7c9 h1:kB3G/1C2iJLY3+qqxQGGFPqHSxm9XHV0A8hVYUmeqh8=
-github.com/robberphex/beego/v2 v2.0.3-0.20220425143916-c546dbd1c7c9/go.mod h1:4pxstbxq+2qE8IUzFsVK8X9BsqfRjbp7ohbapTrTLho=
+github.com/robberphex/beego/v2 v2.0.3-0.20220426143044-d19c8f1c277f h1:LHOCtYojANL8hODtFgrRRvllNUq6YkNkkxIpSQYKD9I=
+github.com/robberphex/beego/v2 v2.0.3-0.20220426143044-d19c8f1c277f/go.mod h1:4pxstbxq+2qE8IUzFsVK8X9BsqfRjbp7ohbapTrTLho=
 github.com/rogpeppe/fastuuid v0.0.0-20150106093220-6724a57986af/go.mod h1:XWv6SoW27p1b0cqNHllgS5HIMJraePCO15w5zCzIWYg=
 github.com/rogpeppe/fastuuid v1.2.0/go.mod h1:jVj6XXZzXRy/MSR5jhDC/2q6DgLz+nrA6LYCDYWNEvQ=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/beego/beego/v2/core/logs"
 	beego "github.com/beego/beego/v2/server/web"
 	"github.com/nacos-group/nacos-sdk-go/clients"
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
@@ -30,9 +31,9 @@ var ignoreNets = []string{
 var allowNets = []string{}
 
 type callback struct {
-	beego.UnimplementedLifeCycleCallback
-	ips     []string
-	nclient naming_client.INamingClient
+	ips      []string
+	nclient  naming_client.INamingClient
+	stopChan chan struct{}
 }
 
 func newCallback() callback {
@@ -60,15 +61,16 @@ func newCallback() callback {
 		constant.KEY_CLIENT_CONFIG:  clientConfig,
 	})
 	return callback{
-		ips:     ip,
-		nclient: nClient,
+		ips:      ip,
+		nclient:  nClient,
+		stopChan: make(chan struct{}),
 	}
 }
 
 func (c callback) AfterStart(app *beego.HttpServer) {
 	fmt.Printf("current PID: %d, ips: %+v\n", os.Getpid(), c.ips)
 
-	processServiceContract(app, c.ips)
+	processServiceContract(app, c.ips, c.stopChan)
 
 	var totalErr error
 	for _, ip := range c.ips {
@@ -81,18 +83,19 @@ func (c callback) AfterStart(app *beego.HttpServer) {
 			ServiceName: AppName,
 			Ephemeral:   true,
 		}
-		_, err := c.nclient.RegisterInstance(regParam)
-		totalErr = multierr.Append(totalErr, err)
+		if c.nclient != nil {
+			_, err := c.nclient.RegisterInstance(regParam)
+			totalErr = multierr.Append(totalErr, err)
+		}
 	}
-	fmt.Printf("%#v\n", totalErr)
+	logs.Info("AfterStart %#v\n", totalErr)
 }
 
-func processServiceContract(app *beego.HttpServer, ips []string) {
+func processServiceContract(app *beego.HttpServer, ips []string, stopChan chan struct{}) {
 	processedName := make(map[string]bool)
 	service := service_contract_v1.ServiceDescriptor{}
 	for _, info := range app.Handlers.GetAllControllerInfo() {
 		method := service_contract_v1.MethodDescriptor{}
-		fmt.Printf("=\t%s\t%#v\n", info.GetPattern(), info.GetMethod())
 		method.HttpPaths = []string{info.GetPattern()}
 		if len(info.GetMethod()) != 0 {
 			for httpMethod, _ := range info.GetMethod() {
@@ -148,16 +151,32 @@ func processServiceContract(app *beego.HttpServer, ips []string) {
 			},
 		},
 	}
-	ose := getOpenSergoEndpoint()
-	timeoutCtx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	conn, err := google_grpc.DialContext(timeoutCtx, ose, google_grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		fmt.Printf("err: %v\n", err)
-	}
-	mClient := service_contract_v1.NewMetadataServiceClient(conn)
-	reply, err := mClient.ReportMetadata(context.Background(), &req)
-	fmt.Printf("xxxxxxxxxxx: reply: %v, err: %v\n", reply, err)
-	_ = reply
+
+	ticker := time.NewTicker(30 * time.Second)
+	reportPeriodically(stopChan, ticker, req)
+}
+
+func reportPeriodically(stopChan chan struct{}, ticker *time.Ticker, req service_contract_v1.ReportMetadataRequest) {
+	go func() {
+		for {
+			select {
+			case <-stopChan:
+				logs.Info("stopping!!!")
+				return
+			case <-ticker.C:
+				ose := getOpenSergoEndpoint()
+				timeoutCtx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+				conn, err := google_grpc.DialContext(timeoutCtx, ose, google_grpc.WithTransportCredentials(insecure.NewCredentials()))
+				if err != nil {
+					fmt.Printf("err: %v\n", err)
+				}
+				mClient := service_contract_v1.NewMetadataServiceClient(conn)
+				reply, err := mClient.ReportMetadata(context.Background(), &req)
+				fmt.Printf("xxxxxxxxxxx: reply: %v, err: %v\n", reply, err)
+				_ = reply
+			}
+		}
+	}()
 }
 
 type openSergoConfig struct {
@@ -184,6 +203,9 @@ func getOpenSergoEndpoint() string {
 }
 
 func (c callback) BeforeShutdown(app *beego.HttpServer) {
+	logs.Info("BeforeShutdown entrypoint")
+	c.stopChan <- struct{}{}
+
 	var totalErr error
 	for _, ip := range c.ips {
 		updateParam := vo.UpdateInstanceParam{
@@ -193,10 +215,12 @@ func (c callback) BeforeShutdown(app *beego.HttpServer) {
 			Enable:      false,
 			ServiceName: AppName,
 		}
-		_, err := c.nclient.UpdateInstance(updateParam)
-		totalErr = multierr.Append(totalErr, err)
+		if c.nclient != nil {
+			_, err := c.nclient.UpdateInstance(updateParam)
+			totalErr = multierr.Append(totalErr, err)
+		}
 	}
-	fmt.Printf("%#v\n", totalErr)
+	logs.Info("BeforeShutdown after UpdateInstance %#v\n", totalErr)
 
 	totalErr = nil
 	for _, ip := range c.ips {
@@ -205,11 +229,14 @@ func (c callback) BeforeShutdown(app *beego.HttpServer) {
 			Port:        uint64(app.Cfg.Listen.HTTPPort),
 			ServiceName: AppName,
 		}
-		_, err := c.nclient.DeregisterInstance(deregParam)
-		totalErr = multierr.Append(totalErr, err)
+		if c.nclient != nil {
+			_, err := c.nclient.DeregisterInstance(deregParam)
+			totalErr = multierr.Append(totalErr, err)
+		}
 	}
-	fmt.Printf("%#v\n", totalErr)
+	logs.Info("BeforeShutdown after DeregisterInstance %#v\n", totalErr)
 	time.Sleep(10 * time.Second)
+	logs.Info("BeforeShutdown last!")
 }
 
 func main() {

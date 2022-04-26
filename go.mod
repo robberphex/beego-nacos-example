@@ -14,7 +14,7 @@ require (
 	google.golang.org/grpc v1.43.0
 )
 
-replace github.com/beego/beego/v2 => github.com/robberphex/beego/v2 v2.0.3-0.20220425143916-c546dbd1c7c9 // callback branch
+replace github.com/beego/beego/v2 => github.com/robberphex/beego/v2 v2.0.3-0.20220426143044-d19c8f1c277f // callback branch
 
 require (
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.18 // indirect

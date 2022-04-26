@@ -19,5 +19,7 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
 WORKDIR /
 COPY --from=builder /workspace/example-beego-opensergo .
+COPY --from=builder /workspace/conf ./conf
+COPY --from=builder /workspace/start.sh /
 
-ENTRYPOINT ["/example-beego-opensergo"]
+ENTRYPOINT ["/start.sh"]
