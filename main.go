@@ -1,20 +1,27 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	beego "github.com/beego/beego/v2/server/web"
 	"github.com/nacos-group/nacos-sdk-go/clients"
 	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
 	"github.com/nacos-group/nacos-sdk-go/common/constant"
 	"github.com/nacos-group/nacos-sdk-go/vo"
-	_ "github.com/robberphex/beego-nacos-example/routers"
+	service_contract_v1 "github.com/opensergo/opensergo-go/proto/service_contract/v1"
+	_ "github.com/robberphex/example-beego-opensergo/routers"
 	"go.uber.org/multierr"
+	google_grpc "google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"io/ioutil"
 	"net"
 	"os"
+	"strings"
 	"time"
 )
 
-const AppName = "test_app"
+const AppName = "example-beego-opensergo"
 
 var ignoreNets = []string{
 	"30.39.179.16/30",
@@ -23,6 +30,7 @@ var ignoreNets = []string{
 var allowNets = []string{}
 
 type callback struct {
+	beego.UnimplementedLifeCycleCallback
 	ips     []string
 	nclient naming_client.INamingClient
 }
@@ -59,6 +67,8 @@ func newCallback() callback {
 func (c callback) AfterStart(app *beego.HttpServer) {
 	fmt.Printf("current PID: %d, ips: %+v\n", os.Getpid(), c.ips)
 
+	processServiceContract(app, c.ips)
+
 	var totalErr error
 	for _, ip := range c.ips {
 		regParam := vo.RegisterInstanceParam{
@@ -74,6 +84,102 @@ func (c callback) AfterStart(app *beego.HttpServer) {
 		totalErr = multierr.Append(totalErr, err)
 	}
 	fmt.Printf("%#v\n", totalErr)
+}
+
+func processServiceContract(app *beego.HttpServer, ips []string) {
+	processedName := make(map[string]bool)
+	service := service_contract_v1.ServiceDescriptor{}
+	for _, info := range app.Handlers.GetAllControllerInfo() {
+		method := service_contract_v1.MethodDescriptor{}
+		fmt.Printf("=\t%s\t%#v\n", info.GetPattern(), info.GetMethod())
+		method.HttpPaths = []string{info.GetPattern()}
+		if len(info.GetMethod()) != 0 {
+			for httpMethod, _ := range info.GetMethod() {
+				method.HttpMethods = append(method.HttpMethods, httpMethod)
+			}
+			method.Name = strings.Join(method.HttpMethods, ",")
+		} else {
+			method.Name = "ALL"
+			method.HttpMethods = []string{
+				"GET",
+				"POST",
+				"PUT",
+				"DELETE",
+				"PATCH",
+				"OPTIONS",
+				"HEAD",
+				"TRACE",
+				"CONNECT",
+				"MKCOL",
+				"COPY",
+				"MOVE",
+				"PROPFIND",
+				"PROPPATCH",
+				"LOCK",
+				"UNLOCK",
+			}
+		}
+		method.Name += " " + info.GetPattern()
+		if _, ok := processedName[method.Name]; !ok {
+			service.Methods = append(service.Methods, &method)
+			processedName[method.Name] = true
+		}
+	}
+	var addrs []*service_contract_v1.SocketAddress
+	for _, ip := range ips {
+		addrs = append(addrs, &service_contract_v1.SocketAddress{
+			Address:   ip,
+			PortValue: uint32(app.Cfg.Listen.HTTPPort),
+		})
+	}
+
+	req := service_contract_v1.ReportMetadataRequest{
+		AppName: AppName,
+		ServiceMetadata: []*service_contract_v1.ServiceMetadata{
+			{
+				ListeningAddresses: addrs,
+				Protocols:          []string{"http"},
+				ServiceContract: &service_contract_v1.ServiceContract{
+					Services: []*service_contract_v1.ServiceDescriptor{
+						&service,
+					},
+				},
+			},
+		},
+	}
+	ose := getOpenSergoEndpoint()
+	timeoutCtx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	conn, err := google_grpc.DialContext(timeoutCtx, ose, google_grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		fmt.Printf("err: %v\n", err)
+	}
+	mClient := service_contract_v1.NewMetadataServiceClient(conn)
+	reply, err := mClient.ReportMetadata(context.Background(), &req)
+	fmt.Printf("xxxxxxxxxxx: reply: %v, err: %v\n", reply, err)
+	_ = reply
+}
+
+type openSergoConfig struct {
+	Endpoint string `json:"endpoint"`
+}
+
+func getOpenSergoEndpoint() string {
+	var err error
+	configStr := os.Getenv("OPENSERGO_BOOTSTRAP_CONFIG")
+	configBytes := []byte(configStr)
+	if configStr == "" {
+		configPath := os.Getenv("OPENSERGO_BOOTSTRAP")
+		configBytes, err = ioutil.ReadFile(configPath)
+		if err != nil {
+			fmt.Printf("err: %v\n", err)
+		}
+	}
+	config := openSergoConfig{}
+	err = json.Unmarshal(configBytes, &config)
+	if err != nil {
+		fmt.Printf("err: %v\n", err)
+	}
+	return config.Endpoint
 }
 
 func (c callback) BeforeShutdown(app *beego.HttpServer) {
@@ -106,7 +212,8 @@ func (c callback) BeforeShutdown(app *beego.HttpServer) {
 }
 
 func main() {
-	beego.RunWithOptions(nil, beego.WithLifeCycleCallback(newCallback()))
+	beego.BeeApp.LifeCycleCallbacks = append(beego.BeeApp.LifeCycleCallbacks, newCallback())
+	beego.Run()
 }
 
 func getRegIp() []string {

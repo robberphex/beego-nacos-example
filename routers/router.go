@@ -4,7 +4,7 @@ import (
 	"fmt"
 	beego "github.com/beego/beego/v2/server/web"
 	beecontext "github.com/beego/beego/v2/server/web/context"
-	"github.com/robberphex/beego-nacos-example/controllers"
+	"github.com/robberphex/example-beego-opensergo/controllers"
 	"net/http"
 	"strings"
 )

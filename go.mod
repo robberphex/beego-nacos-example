@@ -1,16 +1,20 @@
-module github.com/robberphex/beego-nacos-example
+module github.com/robberphex/example-beego-opensergo
 
 go 1.17
 
-require github.com/beego/beego/v2 v2.0.2
+require (
+	github.com/beego/beego/v2 v2.0.2
+	github.com/opensergo/opensergo-go v0.0.0-20220331070310-e5b01fee4d1c
+)
 
 require (
 	github.com/nacos-group/nacos-sdk-go v1.1.1
 	github.com/smartystreets/goconvey v1.6.4
 	go.uber.org/multierr v1.6.0
+	google.golang.org/grpc v1.43.0
 )
 
-replace github.com/beego/beego/v2 => github.com/robberphex/beego/v2 v2.0.3-0.20220421031325-0585cc919dc2
+replace github.com/beego/beego/v2 => github.com/robberphex/beego/v2 v2.0.3-0.20220425143916-c546dbd1c7c9 // callback branch
 
 require (
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.18 // indirect
@@ -42,7 +46,8 @@ require (
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/sys v0.0.0-20210603081109-ebe580a85c40 // indirect
 	golang.org/x/text v0.3.5 // indirect
-	google.golang.org/protobuf v1.26.0 // indirect
+	google.golang.org/genproto v0.0.0-20210602131652-f16073e35f0c // indirect
+	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/ini.v1 v1.42.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
