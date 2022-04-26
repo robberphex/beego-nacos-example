@@ -45,9 +45,10 @@ func newCallback() callback {
 		constant.WithCacheDir("/tmp/nacos/cache"),
 		constant.WithLogLevel("debug"),
 	)
+	serverAddr := os.Getenv("serverAddr")
 	serverConfigs := []constant.ServerConfig{
 		*constant.NewServerConfig(
-			"mse-96efa264-p.nacos-ans.mse.aliyuncs.com",
+			serverAddr,
 			8848,
 			constant.WithScheme("http"),
 		),
